@@ -166,6 +166,9 @@ vim.o.scrolloff = 10
 -- See `:help 'confirm'`
 vim.o.confirm = true
 
+vim.opt.shiftwidth = 2
+vim.opt.softtabstop = 2
+
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
@@ -222,6 +225,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- Set up filetype-specific indentation
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact', 'json', 'html', 'css' },
+  callback = function()
+    vim.opt_local.shiftwidth = 2
+    vim.opt_local.softtabstop = 2
+    vim.opt_local.tabstop = 2
+    vim.opt_local.expandtab = true
+  end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -267,6 +281,41 @@ require('lazy').setup({
       },
       auto_insert_mode = true, -- Enter insert mode when opening
     },
+  },
+  {
+    'pmizio/typescript-tools.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim', 'neovim/nvim-lspconfig' },
+    opts = {},
+  },
+  {
+    'folke/noice.nvim',
+    dependencies = {
+      'MunifTanjim/nui.nvim',
+      'rcarriga/nvim-notify',
+    },
+    config = function()
+      require('noice').setup {
+        cmdline = {
+          enabled = true,
+          view = 'cmdline_popup',
+          format = {
+            cmdline = { pattern = '^:', icon = '', lang = 'vim' },
+            search_down = { kind = 'search', pattern = '^/', icon = ' ', lang = 'regex' },
+            search_up = { kind = 'search', pattern = '^%?', icon = ' ', lang = 'regex' },
+            filter = { pattern = '^:%s*!', icon = '$', lang = 'bash' },
+            lua = { pattern = { '^:%s*lua%s+', '^:%s*lua%s*=%s*', '^:%s*=%s*' }, icon = '', lang = 'lua' },
+            help = { pattern = '^:%s*he?l?p?%s+', icon = '' },
+            input = { view = 'cmdline_input', icon = '󰥻 ' }, -- Used by input()
+          },
+        },
+        routes = {
+          {
+            filter = { event = 'cmdline', find = '^:!' },
+            view = 'cmdline',
+          },
+        },
+      }
+    end,
   },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -794,7 +843,10 @@ require('lazy').setup({
         -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        javascript = { 'prettierd', 'prettier', stop_after_first = true },
+        javascriptreact = { 'prettierd', 'prettier', stop_after_first = true },
+        typescript = { 'prettierd', 'prettier', stop_after_first = true },
+        typescriptreact = { 'prettierd', 'prettier', stop_after_first = true },
       },
     },
   },
