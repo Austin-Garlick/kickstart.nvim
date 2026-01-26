@@ -169,6 +169,13 @@ vim.o.confirm = true
 vim.opt.shiftwidth = 2
 vim.opt.softtabstop = 2
 
+-- disable netrw at the very start of your init.lua
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
+-- optionally enable 24-bit colour
+vim.opt.termguicolors = true
+
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
@@ -204,6 +211,11 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+vim.keymap.set('n', '<leader>e', vim.cmd.NvimTreeToggle, { desc = 'Toggle file [E]xplorer' })
+vim.keymap.set('n', '<space>fb', function()
+  require('telescope').extensions.file_browser.file_browser()
+end, { desc = 'Open Telescope [F]ile [B]rowser' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -267,6 +279,18 @@ require('lazy').setup({
   'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
   'github/copilot.vim', -- GitHub Copilot plugin
   {
+    'windwp/nvim-ts-autotag',
+    opts = {
+      enableClose = true,
+      enableRename = true,
+      enableCloseOnSlash = false,
+    },
+  },
+  {
+    'nvim-telescope/telescope-file-browser.nvim',
+    dependencies = { 'nvim-telescope/telescope.nvim', 'nvim-lua/plenary.nvim' },
+  },
+  {
     'CopilotC-Nvim/CopilotChat.nvim',
     dependencies = {
       { 'nvim-lua/plenary.nvim', branch = 'master' },
@@ -316,6 +340,22 @@ require('lazy').setup({
         },
       }
     end,
+  },
+  {
+    'nvim-tree/nvim-tree.lua',
+    version = '*',
+    lazy = false,
+    dependencies = {
+      'nvim-tree/nvim-web-devicons',
+    },
+    config = function()
+      require('nvim-tree').setup {}
+    end,
+  },
+  {
+    'nvim-tree/nvim-web-devicons',
+    lazy = false,
+    opts = {},
   },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -755,6 +795,8 @@ require('lazy').setup({
         -- ts_ls = {},
         --
 
+        eslint = {},
+        tailwindcss = {},
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
