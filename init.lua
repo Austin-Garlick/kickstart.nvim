@@ -166,15 +166,74 @@ vim.o.scrolloff = 10
 -- See `:help 'confirm'`
 vim.o.confirm = true
 
-vim.opt.shiftwidth = 2
-vim.opt.softtabstop = 2
-
 -- disable netrw at the very start of your init.lua
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
 -- optionally enable 24-bit colour
 vim.opt.termguicolors = true
+
+-- vim.g.typescript_indent_disable = 1
+-- vim.api.nvim_create_autocmd('FileType', {
+--   pattern = { 'typescript', 'typescriptreact', 'javascript', 'javascriptreact' },
+--   callback = function()
+--     vim.bo.indentexpr = 'nvim_treesitter#indent()'
+--     vim.bo.smartindent = false
+--     vim.bo.cindent = false
+--   end,
+-- })
+
+-- Function to read and apply Prettier config
+local function apply_prettier_indentation()
+  -- Search for prettier config files
+  local config_files = {
+    '.prettierrc',
+    '.prettierrc.json',
+    '.prettierrc.js',
+    'prettier.config.js',
+  }
+
+  local prettier_config = nil
+  for _, filename in ipairs(config_files) do
+    local found = vim.fn.findfile(filename, '.;')
+    if found ~= '' then
+      prettier_config = found
+      break
+    end
+  end
+
+  if not prettier_config then
+    return
+  end
+
+  -- Read JSON config files
+  if prettier_config:match '%.json$' or prettier_config == '.prettierrc' then
+    local file = io.open(prettier_config, 'r')
+    if file then
+      local content = file:read '*all'
+      file:close()
+
+      local ok, config = pcall(vim.fn.json_decode, content)
+      if ok then
+        if config.tabWidth then
+          vim.opt_local.tabstop = config.tabWidth
+          vim.opt_local.shiftwidth = config.tabWidth
+          vim.opt_local.softtabstop = config.tabWidth
+        end
+
+        if config.useTabs ~= nil then
+          vim.opt_local.expandtab = not config.useTabs
+        end
+      end
+    end
+  end
+end
+
+-- Apply prettier indentation on file open
+vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+  pattern = { '*.js', '*.ts', '*.jsx', '*.tsx', '*.json', '*.css', '*.scss', '*.html' },
+  callback = apply_prettier_indentation,
+})
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -218,6 +277,18 @@ vim.keymap.set('n', '<space>fb', function()
   require('telescope').extensions.file_browser.file_browser()
 end, { desc = 'Open Telescope [F]ile [B]rowser' })
 
+vim.keymap.set('n', 'gp', function()
+  local params = vim.lsp.util.make_position_params()
+  vim.lsp.buf_request(0, 'textDocument/definition', params, function(err, result)
+    if err or not result or vim.tbl_isempty(result) then
+      return
+    end
+
+    local def = vim.tbl_islist(result) and result[1] or result
+    vim.lsp.util.preview_location(def, { border = 'rounded' })
+  end)
+end, { desc = 'Peek definition' })
+
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
@@ -239,15 +310,15 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 -- Set up filetype-specific indentation
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact', 'json', 'html', 'css' },
-  callback = function()
-    vim.opt_local.shiftwidth = 2
-    vim.opt_local.softtabstop = 2
-    vim.opt_local.tabstop = 2
-    vim.opt_local.expandtab = true
-  end,
-})
+-- vim.api.nvim_create_autocmd('FileType', {
+--   pattern = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact', 'json', 'html', 'css' },
+--   callback = function()
+--     vim.opt_local.shiftwidth = 2
+--     vim.opt_local.softtabstop = 2
+--     vim.opt_local.tabstop = 2
+--     vim.opt_local.expandtab = true
+--   end,
+-- })
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -278,7 +349,19 @@ rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
-  'github/copilot.vim', -- GitHub Copilot plugin
+  {
+    'github/copilot.vim',
+    config = function()
+      -- Disable default Tab mapping
+      vim.g.copilot_no_tab_map = true
+      -- Map Ctrl+l to accept suggestion
+      vim.keymap.set('i', '<C-l>', 'copilot#Accept("\\<CR>")', {
+        expr = true,
+        replace_keycodes = false,
+        silent = true,
+      })
+    end,
+  },
   {
     'windwp/nvim-ts-autotag',
     opts = {
@@ -1062,7 +1145,24 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'typescript',
+        'tsx',
+        'javascript',
+        'json',
+        'css',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
