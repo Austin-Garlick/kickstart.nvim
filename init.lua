@@ -102,7 +102,7 @@ vim.g.have_nerd_font = true
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+vim.o.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -241,9 +241,12 @@ vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+-- vim.keymap.set('n', '<leader>cc', function()
+--   require('CopilotChat').toggle()
+-- end, { desc = 'Toggle CopilotChat' })
 vim.keymap.set('n', '<leader>cc', function()
-  require('CopilotChat').toggle()
-end, { desc = 'Toggle CopilotChat' })
+  require('claude-code').toggle()
+end, { desc = 'Toggle ClaudeCode' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -262,14 +265,8 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 -- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
 -- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 
--- Keybinds to make split navigation easier.
---  Use CTRL+<hjkl> to switch between windows
---
---  See `:help wincmd` for a list of all window commands
-vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
-vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
-vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
-vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+-- CTRL+<hjkl> split navigation is provided by vim-tmux-navigator (see the
+-- plugin spec below) so the same keys also cross into tmux panes.
 
 vim.keymap.set('n', '<leader>e', vim.cmd.NvimTreeToggle, { desc = 'Toggle file [E]xplorer' })
 vim.keymap.set('n', '<Leader>ds', vim.diagnostic.open_float, { desc = '[D]iagnostic - [S]how' })
@@ -381,7 +378,7 @@ require('lazy').setup({
     },
     build = 'make tiktoken',
     opts = {
-      model = 'claude-haiku-4.5', -- AI model to use
+      model = 'claude-sonnet-4.6', -- AI model to use
       temperature = 0.1, -- Lower = focused, higher = creative
       window = {
         layout = 'vertical', -- 'vertical', 'horizontal', 'float'
@@ -396,10 +393,41 @@ require('lazy').setup({
     opts = {},
   },
   {
+    'greggh/claude-code.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim', -- Required for git operations
+    },
+    config = function()
+      require('claude-code').setup {
+        window = {
+          position = 'float',
+          float = {
+            width = '90%', -- Take up 90% of the editor width
+            height = '90%', -- Take up 90% of the editor height
+            row = 'center', -- Center vertically
+            col = 'center', -- Center horizontally
+            relative = 'editor',
+            border = 'double', -- Use double border style
+          },
+        },
+      }
+    end,
+  },
+  {
     'folke/noice.nvim',
     dependencies = {
       'MunifTanjim/nui.nvim',
-      'rcarriga/nvim-notify',
+      {
+        'rcarriga/nvim-notify',
+        opts = function()
+          return {
+            -- The transparent colorscheme leaves NotifyBackground without a
+            -- background, and nvim-notify needs a real colour to fade popups
+            -- in/out against. Use the theme's base so fades match the window.
+            background_colour = require('rose-pine.palette').base,
+          }
+        end,
+      },
     },
     config = function()
       require('noice').setup {
@@ -433,7 +461,11 @@ require('lazy').setup({
       'nvim-tree/nvim-web-devicons',
     },
     config = function()
-      require('nvim-tree').setup {}
+      require('nvim-tree').setup {
+        view = {
+          width = 40,
+        },
+      }
     end,
   },
   {
@@ -539,6 +571,7 @@ require('lazy').setup({
         { '<leader>s', group = '[S]earch' },
         { '<leader>t', group = '[T]oggle' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
+        { '<leader>g', group = '[G]it review' },
       },
     },
   },
@@ -881,6 +914,10 @@ require('lazy').setup({
 
         eslint = {},
         tailwindcss = {},
+        pyright = {},
+        omnisharp = {
+          cmd = { 'omnisharp' },
+        },
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -913,6 +950,8 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'black',
+        'isort',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -966,13 +1005,13 @@ require('lazy').setup({
       formatters_by_ft = {
         lua = { 'stylua' },
         -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         javascript = { 'prettierd', 'prettier', stop_after_first = true },
         javascriptreact = { 'prettierd', 'prettier', stop_after_first = true },
         typescript = { 'prettierd', 'prettier', stop_after_first = true },
         typescriptreact = { 'prettierd', 'prettier', stop_after_first = true },
+        python = { 'isort', 'black' },
       },
     },
   },
@@ -1082,11 +1121,21 @@ require('lazy').setup({
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
     -- 'folke/tokyonight.nvim',
-    'catppuccin/nvim',
+    -- 'catppuccin/nvim',
     -- 'rebelot/kanagawa.nvim',
+    -- Matches the rose-pine-moon theme used by WezTerm and tmux
+    'rose-pine/neovim',
+    name = 'rose-pine',
     priority = 1000, -- Make sure to load this before all the other start plugins.
     config = function()
-      vim.cmd.colorscheme 'catppuccin-mocha'
+      require('rose-pine').setup {
+        variant = 'moon',
+        styles = {
+          -- Let WezTerm's translucent, blurred background show through
+          transparency = true,
+        },
+      }
+      vim.cmd.colorscheme 'rose-pine-moon'
     end,
     -- config = function()
     --   -- require('tokyonight').setup {
@@ -1102,6 +1151,74 @@ require('lazy').setup({
     --   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
     --   vim.cmd.colorscheme 'tokyonight-night'
     -- end,
+  },
+
+  { -- CTRL+<hjkl> moves between Neovim splits and tmux panes seamlessly.
+    -- Pairs with the christoomey/vim-tmux-navigator plugin in ~/.tmux.conf.
+    'christoomey/vim-tmux-navigator',
+    cmd = { 'TmuxNavigateLeft', 'TmuxNavigateDown', 'TmuxNavigateUp', 'TmuxNavigateRight', 'TmuxNavigatePrevious' },
+    keys = {
+      { '<C-h>', '<cmd>TmuxNavigateLeft<cr>', desc = 'Move focus left (split or tmux pane)' },
+      { '<C-j>', '<cmd>TmuxNavigateDown<cr>', desc = 'Move focus down (split or tmux pane)' },
+      { '<C-k>', '<cmd>TmuxNavigateUp<cr>', desc = 'Move focus up (split or tmux pane)' },
+      { '<C-l>', '<cmd>TmuxNavigateRight<cr>', desc = 'Move focus right (split or tmux pane)' },
+    },
+  },
+
+  { -- Renders markdown in the buffer (headings, code blocks, tables, checkboxes).
+    -- The line under the cursor shows raw markdown so it stays editable.
+    'MeanderingProgrammer/render-markdown.nvim',
+    ft = { 'markdown' },
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
+    keys = {
+      { '<leader>tm', '<cmd>RenderMarkdown toggle<cr>', ft = 'markdown', desc = '[T]oggle rendered [m]arkdown' },
+    },
+    ---@module 'render-markdown'
+    ---@type render.md.UserConfig
+    opts = {
+      -- Math rendering needs a latex parser plus utftex/latex2text; not used here.
+      latex = { enabled = false },
+    },
+  },
+
+  { -- Side-by-side review of every changed file, branch diffs and file history.
+    -- gitsigns (Space h ...) covers changes inside a single file.
+    'sindrets/diffview.nvim',
+    cmd = { 'DiffviewOpen', 'DiffviewClose', 'DiffviewFileHistory' },
+    keys = {
+      {
+        '<leader>gd',
+        function()
+          if require('diffview.lib').get_current_view() then
+            vim.cmd 'DiffviewClose'
+          else
+            vim.cmd 'DiffviewOpen'
+          end
+        end,
+        desc = 'Toggle [d]iff of uncommitted changes',
+      },
+      {
+        '<leader>gb',
+        function()
+          -- Repos here use both main and master, so ask git which one origin uses.
+          local base = vim.fn.systemlist('git symbolic-ref --short refs/remotes/origin/HEAD')[1]
+          if vim.v.shell_error ~= 0 or not base then
+            base = 'main'
+          end
+          vim.cmd('DiffviewOpen ' .. base .. '...HEAD')
+        end,
+        desc = 'Diff this [b]ranch against its base (PR view)',
+      },
+      { '<leader>gh', '<cmd>DiffviewFileHistory %<cr>', desc = 'Current file [h]istory' },
+      { '<leader>gH', '<cmd>DiffviewFileHistory<cr>', desc = 'Repo [H]istory' },
+    },
+    opts = function()
+      local close = { 'n', 'q', '<cmd>DiffviewClose<cr>', { desc = 'Close diffview' } }
+      return {
+        -- q closes from anywhere inside diffview, not just via Space g d.
+        keymaps = { view = { close }, file_panel = { close }, file_history_panel = { close } },
+      }
+    end,
   },
 
   -- Highlight todo, notes, etc in comments
@@ -1168,6 +1285,8 @@ require('lazy').setup({
         'javascript',
         'json',
         'css',
+        'python',
+        'c_sharp',
       },
       -- Autoinstall languages that are not installed
       auto_install = true,
